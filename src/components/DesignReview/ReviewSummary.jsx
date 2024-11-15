@@ -2,114 +2,190 @@ import { useState } from 'react';
 import { config } from '../../config';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import remarkFrontmatter from 'remark-frontmatter';
+import SyntaxHighlighter from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-const formatValue = (value) => {
-  // Handle File objects
-  if (value instanceof File) {
-    return value.name;
-  }
+const MarkdownContent = ({ content }) => (
+    <ReactMarkdown
+      className="markdown-content"
+      remarkPlugins={[remarkGfm, remarkFrontmatter]}
+      components={{
+        code({node, inline, className, children, ...props}) {
+          const match = /language-(\w+)/.exec(className || '');
+          return !inline && match ? (
+            <SyntaxHighlighter
+              style={oneDark}
+              language={match[1]}
+              PreTag="div"
+              className="rounded-md !my-4"
+              {...props}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          ) : (
+            <code className={`${className} bg-gray-100 px-1 py-0.5 rounded text-mongodb-forest`} {...props}>
+              {children}
+            </code>
+          );
+        },
+        h1: ({node, ...props}) => (
+          <h1 className="text-3xl font-bold text-mongodb-slate mt-8 mb-4 pb-2 border-b border-mongodb-mist" {...props} />
+        ),
+        h2: ({node, ...props}) => (
+          <h2 className="text-2xl font-bold text-mongodb-slate mt-6 mb-3" {...props} />
+        ),
+        h3: ({node, ...props}) => (
+          <h3 className="text-xl font-bold text-mongodb-slate mt-4 mb-2" {...props} />
+        ),
+        a: ({node, ...props}) => (
+          <a 
+            className="text-mongodb-green hover:text-mongodb-forest hover:underline" 
+            target="_blank"
+            rel="noopener noreferrer"
+            {...props}
+          />
+        ),
+        p: ({node, ...props}) => (
+          <p className="my-4 text-mongodb-slate leading-relaxed" {...props} />
+        ),
+        ul: ({node, ...props}) => (
+          <ul className="list-disc pl-6 my-4 space-y-2 text-mongodb-slate" {...props} />
+        ),
+        ol: ({node, ...props}) => (
+          <ol className="list-decimal pl-6 my-4 space-y-2 text-mongodb-slate" {...props} />
+        ),
+        li: ({node, children, ...props}) => (
+          <li className="leading-relaxed" {...props}>{children}</li>
+        ),
+        blockquote: ({node, ...props}) => (
+          <blockquote 
+            className="border-l-4 border-mongodb-green bg-mongodb-lavender pl-4 py-2 my-4 text-mongodb-slate"
+            {...props}
+          />
+        ),
+        table: ({node, ...props}) => (
+          <div className="overflow-x-auto my-4">
+            <table className="min-w-full divide-y divide-mongodb-mist" {...props} />
+          </div>
+        ),
+        thead: ({node, ...props}) => (
+          <thead className="bg-mongodb-lavender" {...props} />
+        ),
+        th: ({node, ...props}) => (
+          <th className="px-4 py-2 text-left text-mongodb-slate font-semibold" {...props} />
+        ),
+        td: ({node, ...props}) => (
+          <td className="px-4 py-2 border-t border-mongodb-mist" {...props} />
+        ),
+        hr: ({node, ...props}) => (
+          <hr className="my-8 border-t-2 border-mongodb-mist" {...props} />
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
   
-  // Handle arrays of Files
-  if (Array.isArray(value) && value[0] instanceof File) {
-    return value.map(file => file.name).join(', ');
-  }
 
-  // Handle dynamic list objects
-  if (typeof value === 'object' && value !== null) {
-    if ('operation_type' in value || 'current_latency' in value || 'target_latency' in value) {
-      return (
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(value).map(([key, val]) => (
-            <div key={key}>
-              <span className="font-medium">{key.replace(/_/g, ' ')}: </span>
-              <span>{val}</span>
-            </div>
-          ))}
-        </div>
-      );
+  const formatValue = (value) => {
+    if (value instanceof File) {
+      return value.name;
     }
-    return JSON.stringify(value, null, 2);
-  }
+    
+    if (Array.isArray(value) && value[0] instanceof File) {
+      return value.map(file => file.name).join(', ');
+    }
+  
+    if (typeof value === 'object' && value !== null) {
+      if ('operation_type' in value || 'current_latency' in value || 'target_latency' in value) {
+        return (
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(value).map(([key, val]) => (
+              <div key={key}>
+                <span className="font-medium">{key.replace(/_/g, ' ')}: </span>
+                <span>{val}</span>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      return JSON.stringify(value, null, 2);
+    }
+  
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+  
+    return String(value);
+  };
 
-  // Handle arrays
-  if (Array.isArray(value)) {
-    return value.join(', ');
-  }
-
-  // Default case for primitive values
-  return String(value);
-};
-
-const ReviewSummary = ({ template, responses, onEdit }) => {
+  const ReviewSummary = ({ template, responses, onEdit }) => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState(null);
     const [generatedDocument, setGeneratedDocument] = useState(null);
     const [showDocument, setShowDocument] = useState(false);
-
-  const handleGenerateDocument = async () => {
-    console.log('Starting document generation...');
-    setIsGenerating(true);
-    setError(null);
-    
-    try {
-      const payload = {
-        templateName: template.name,
-        templateType: template.type,
-        metadata: {
-          generatedAt: new Date().toISOString(),
-          templateVersion: template.version || '1.0',
-        },
-        sections: template.sections.map(section => ({
-          title: section.title,
-          questions: section.questions.map(question => ({
-            label: question.label,
-            type: question.type,
-            response: responses[question.id]
+  
+    const handleGenerateDocument = async () => {
+      console.log('Starting document generation...');
+      setIsGenerating(true);
+      setError(null);
+      
+      try {
+        const payload = {
+          templateName: template.name,
+          templateType: template.type,
+          metadata: {
+            generatedAt: new Date().toISOString(),
+            templateVersion: template.version || '1.0',
+          },
+          sections: template.sections.map(section => ({
+            title: section.title,
+            questions: section.questions.map(question => ({
+              label: question.label,
+              type: question.type,
+              response: responses[question.id]
+            }))
           }))
-        }))
-      };
-
-      console.log('Sending payload:', payload);
-
-      const response = await fetch(`${config.API_URL}/api/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate document');
+        };
+  
+        const response = await fetch(`${config.API_URL}/api/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+  
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to generate document');
+        }
+  
+        const data = await response.json();
+        console.log('Received generated document:', data);
+        setGeneratedDocument(data);
+        setShowDocument(true);
+  
+      } catch (err) {
+        console.error('Document generation error:', err);
+        setError(err.message || 'Failed to generate review document');
+      } finally {
+        setIsGenerating(false);
       }
+    };
 
-      const data = await response.json();
-      console.log('Received generated document:', data);
-      setGeneratedDocument(data);
-      setShowDocument(true);
-
-    } catch (err) {
-      console.error('Document generation error:', err);
-      setError(err.message || 'Failed to generate review document');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const downloadDocument = () => {
-    if (!generatedDocument) return;
-
-    const element = document.createElement('a');
-    const file = new Blob([generatedDocument.content], {type: 'text/markdown'});
-    element.href = URL.createObjectURL(file);
-    element.download = `${template.name.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.md`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-  };
+    const downloadDocument = () => {
+        if (!generatedDocument) return;
+    
+        const element = document.createElement('a');
+        const file = new Blob([generatedDocument.content], {type: 'text/markdown'});
+        element.href = URL.createObjectURL(file);
+        element.download = `${template.name.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.md`;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+      };
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -236,60 +312,8 @@ const ReviewSummary = ({ template, responses, onEdit }) => {
               </div>
             </div>
 
-            {/* Markdown rendering */}
             <div className="bg-white rounded-lg border border-mongodb-mist">
-              <ReactMarkdown
-                className="p-6"
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  // Customize code blocks
-                  code({node, inline, className, children, ...props}) {
-                    const match = /language-(\w+)/.exec(className || '');
-                    return !inline && match ? (
-                      <SyntaxHighlighter
-                        style={oneDark}
-                        language={match[1]}
-                        PreTag="div"
-                        className="rounded-md !my-4"
-                        {...props}
-                      >
-                        {String(children).replace(/\n$/, '')}
-                      </SyntaxHighlighter>
-                    ) : (
-                      <code className={`${className} bg-mongodb-lavender px-1 py-0.5 rounded`} {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  // Customize headings
-                  h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-mongodb-slate mt-8 mb-4" {...props} />,
-                  h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-mongodb-slate mt-6 mb-3" {...props} />,
-                  h3: ({node, ...props}) => <h3 className="text-xl font-bold text-mongodb-slate mt-4 mb-2" {...props} />,
-                  // Customize links
-                  a: ({node, ...props}) => (
-                    <a 
-                      className="text-mongodb-green hover:text-mongodb-forest hover:underline" 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    />
-                  ),
-                  // Customize paragraphs
-                  p: ({node, ...props}) => <p className="my-4 text-mongodb-slate" {...props} />,
-                  // Customize lists
-                  ul: ({node, ...props}) => <ul className="list-disc list-inside my-4" {...props} />,
-                  ol: ({node, ...props}) => <ol className="list-decimal list-inside my-4" {...props} />,
-                  // Customize blockquotes
-                  blockquote: ({node, ...props}) => (
-                    <blockquote 
-                      className="border-l-4 border-mongodb-mist pl-4 my-4 italic text-mongodb-slate"
-                      {...props}
-                    />
-                  ),
-                }}
-              >
-                {generatedDocument?.content || ''}
-              </ReactMarkdown>
+              <MarkdownContent content={generatedDocument?.content || ''} />
             </div>
           </div>
         </div>
