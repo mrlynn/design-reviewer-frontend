@@ -1,0 +1,271 @@
+id: existing-application
+name: Existing Application Review
+description: For reviewing and optimizing existing MongoDB applications
+version: "1.0"
+type: design-review
+metadata:
+  author: MongoDB Solutions Architecture
+  lastUpdated: "2024-11-15"
+  tags: 
+    - optimization
+    - performance
+    - modernization
+    - existing-application
+
+globalPromptContext: |
+  As a MongoDB Solutions Architect, analyze this existing application with focus on:
+  - Current pain points and challenges
+  - Performance optimization opportunities
+  - Schema design improvements
+  - Indexing strategy optimization
+  - Scaling considerations
+  - Operational best practices
+  
+  Consider MongoDB's latest features and capabilities that could benefit this application.
+  Provide specific, actionable recommendations based on MongoDB best practices.
+
+sections:
+  - id: application-overview
+    title: Application Overview
+    description: Current state and context of the application
+    questions:
+      - id: app-name
+        type: text
+        label: Application Name
+        required: true
+        placeholder: Name of the existing application
+        promptContext: |
+          Use the application name for context and reference throughout the analysis.
+          Consider industry-specific best practices and common patterns for this type of application.
+
+      - id: current-version
+        type: text
+        label: Current MongoDB Version
+        required: true
+        placeholder: e.g., MongoDB 5.0, Atlas 6.0
+        promptContext: |
+          Analyze version-specific considerations:
+          1. Available features in current version
+          2. Potential benefits of upgrading
+          3. Version-specific best practices
+          4. Migration considerations if upgrade is recommended
+
+      - id: deployment-type
+        type: select
+        label: Deployment Type
+        required: true
+        options:
+          - Atlas (Serverless)
+          - Atlas (Dedicated)
+          - Atlas (Shared)
+          - On-Premises
+          - Self-Managed Cloud
+          - Other
+        promptContext: |
+          Based on deployment type, consider:
+          1. Deployment-specific optimizations
+          2. Available features and limitations
+          3. Scaling capabilities
+          4. Migration opportunities to more suitable deployment options
+          5. Cost optimization strategies
+
+      - id: current-challenges
+        type: textarea
+        label: Current Challenges
+        required: true
+        placeholder: Describe the main challenges or pain points you are experiencing
+        promptContext: |
+          Analyze reported challenges considering:
+          1. Root cause analysis
+          2. MongoDB features that could address these challenges
+          3. Best practices to prevent similar issues
+          4. Specific optimization recommendations
+          5. Alternative approaches or architectural changes
+
+  - id: performance-metrics
+    title: Performance Profile
+    description: Current performance metrics and requirements
+    questions:
+      - id: current-data-size
+        type: select
+        label: Current Data Size
+        required: true
+        options:
+          - < 100GB
+          - 100GB - 1TB
+          - 1TB - 10TB
+          - > 10TB
+        promptContext: |
+          Based on data size, analyze:
+          1. Appropriate deployment topology
+          2. Sharding considerations
+          3. Backup and recovery strategies
+          4. Storage optimization opportunities
+          5. Cost optimization strategies
+
+      - id: growth-rate
+        type: text
+        label: Data Growth Rate
+        placeholder: e.g., 100GB per month
+        required: true
+        promptContext: |
+          Evaluate growth rate implications:
+          1. Capacity planning recommendations
+          2. Scaling strategy
+          3. Data lifecycle management
+          4. Archive strategies if needed
+          5. Cost projections and optimization
+
+      - id: operation-metrics
+        type: dynamic-list
+        label: Critical Operations
+        itemTemplate:
+          operation_type:
+            type: select
+            options: [Read, Write, Update, Delete, Aggregation]
+          current_latency:
+            type: text
+            placeholder: Current latency (ms)
+          target_latency:
+            type: text
+            placeholder: Target latency (ms)
+          frequency:
+            type: select
+            options: [High, Medium, Low]
+        promptContext: |
+          For each operation pattern:
+          1. Analyze current vs target performance
+          2. Identify optimization opportunities
+          3. Recommend index strategies
+          4. Suggest query optimizations
+          5. Consider caching strategies
+          6. Evaluate read/write concerns
+
+      - id: slow-queries
+        type: file-upload
+        label: Slow Query Logs
+        accept: .json,.log
+        multiple: true
+        helperText: Upload relevant slow query logs or MongoDB Atlas Performance Advisor reports
+        promptContext: |
+          Analyze query patterns for:
+          1. Index optimization opportunities
+          2. Query restructuring recommendations
+          3. Schema optimization possibilities
+          4. Aggregation pipeline optimizations
+          5. Specific performance tuning suggestions
+
+  - id: schema-analysis
+    title: Schema Analysis
+    description: Current schema design and access patterns
+    questions:
+      - id: current-schema
+        type: file-upload
+        label: Current Schema
+        accept: .json,.js,.yaml
+        multiple: true
+        helperText: Upload current schema definitions or examples
+        promptContext: |
+          Review schema design for:
+          1. Adherence to MongoDB best practices
+          2. Optimization opportunities
+          3. Potential anti-patterns
+          4. Data model improvements
+          5. Schema versioning strategies
+
+      - id: indexing-strategy
+        type: textarea
+        label: Current Indexing Strategy
+        placeholder: Describe your current indexes and their purposes
+        required: true
+        promptContext: |
+          Evaluate indexing strategy:
+          1. Index efficiency and coverage
+          2. Missing indexes
+          3. Redundant indexes
+          4. Compound index opportunities
+          5. Index maintenance recommendations
+
+      - id: access-patterns
+        type: dynamic-list
+        label: Key Access Patterns
+        itemTemplate:
+          description:
+            type: textarea
+            placeholder: Describe the access pattern
+          frequency:
+            type: select
+            options: [High, Medium, Low]
+          performance_grade:
+            type: select
+            options: [Optimal, Acceptable, Needs Improvement, Critical]
+        promptContext: |
+          For each access pattern:
+          1. Evaluate current implementation
+          2. Suggest optimizations
+          3. Consider indexing implications
+          4. Recommend alternative approaches
+          5. Address performance concerns
+
+      - id: schema-challenges
+        type: checkbox-group
+        label: Current Schema Challenges
+        options:
+          - Large Documents
+          - Frequent Schema Changes
+          - Complex Relationships
+          - Inconsistent Data
+          - Growing Array Size
+          - Unbounded Arrays
+          - Frequent Document Updates
+          - Other
+        promptContext: |
+          Address each identified challenge with:
+          1. Specific solutions and best practices
+          2. Schema optimization recommendations
+          3. Data modeling alternatives
+          4. Performance impact mitigation
+          5. Migration strategies if needed
+
+analysisPromptTemplate: |
+  Based on the provided information, generate a comprehensive analysis document with the following sections:
+
+  # MongoDB Design Review Analysis
+  
+  ## Executive Summary
+  - High-level overview of findings
+  - Critical recommendations
+  - Key benefits of implementing recommendations
+  
+  ## Current State Analysis
+  - Application overview
+  - Performance profile
+  - Schema design evaluation
+  - Operational considerations
+  
+  ## Detailed Findings
+  - Performance optimization opportunities
+  - Schema improvement recommendations
+  - Indexing strategy recommendations
+  - Operational optimization suggestions
+  
+  ## Recommendations
+  - Prioritized list of recommendations
+  - Implementation guidance
+  - Expected benefits
+  - Potential risks and mitigations
+  
+  ## Implementation Roadmap
+  - Short-term improvements
+  - Medium-term optimizations
+  - Long-term strategic changes
+  
+  ## Additional Considerations
+  - Security recommendations
+  - Scalability considerations
+  - Cost optimization opportunities
+  
+  ## References
+  - Relevant MongoDB documentation
+  - Best practice guides
+  - Implementation examples

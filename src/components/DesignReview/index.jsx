@@ -1,21 +1,70 @@
-// frontend/design-review-app/src/components/DesignReview/index.jsx
-import { useState } from 'react';
+// components/DesignReview/index.jsx
+import { useState, useEffect } from 'react';
+import { config } from '../../config';
 import TemplateSelector from './TemplateSelector';
 import ReviewSection from './ReviewSection';
 import ReviewSummary from './ReviewSummary';
-import { reviewTemplates } from '../../data/reviewTemplates';
 
 export const DesignReview = () => {
+  const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [currentSection, setCurrentSection] = useState(0);
   const [responses, setResponses] = useState({});
   const [isReviewComplete, setIsReviewComplete] = useState(false);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleTemplateSelect = (templateId) => {
-    setSelectedTemplate(reviewTemplates[templateId]);
-    setCurrentSection(0);
-    setResponses({});
-    setIsReviewComplete(false);
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${config.API_URL}/api/templates`);
+        if (!response.ok) {
+          throw new Error('Failed to load templates');
+        }
+        const data = await response.json();
+        console.log('Loaded templates:', data);
+        setTemplates(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error loading templates:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTemplates();
+  }, []);
+
+  const handleTemplateSelect = async (templateId) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      console.log('Loading template:', templateId);
+      const response = await fetch(`${config.API_URL}/api/templates/${templateId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to load template');
+      }
+      
+      const template = await response.json();
+      console.log('Selected template:', template);
+      
+      if (!template.sections || !Array.isArray(template.sections)) {
+        throw new Error('Invalid template format: missing sections array');
+      }
+      
+      setSelectedTemplate(template);
+      setCurrentSection(0);
+      setResponses({});
+      setIsReviewComplete(false);
+    } catch (err) {
+      console.error('Error loading template:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleResponseChange = (questionId, value) => {
@@ -26,7 +75,7 @@ export const DesignReview = () => {
   };
 
   const handleSectionComplete = () => {
-    if (currentSection < selectedTemplate.sections.length - 1) {
+    if (selectedTemplate && currentSection < selectedTemplate.sections.length - 1) {
       setCurrentSection(currentSection + 1);
     } else {
       setIsReviewComplete(true);
@@ -37,20 +86,38 @@ export const DesignReview = () => {
     setCurrentSection(Math.max(0, currentSection - 1));
   };
 
-  const handleReviewComplete = async () => {
-    // Generate final review document
-    const document = {
-      template: selectedTemplate.name,
-      responses: responses,
-      timestamp: new Date().toISOString()
-    };
-    
-    console.log('Review completed:', document);
-    // Here you would typically save the document or trigger further processing
-  };
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-6 bg-mongodb-mist rounded w-1/2 mx-auto"></div>
+            <div className="h-4 bg-mongodb-mist rounded w-1/3 mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <p className="font-bold">Error:</p>
+          <p>{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!selectedTemplate) {
-    return <TemplateSelector onSelect={handleTemplateSelect} />;
+    return <TemplateSelector templates={templates} onSelect={handleTemplateSelect} />;
   }
 
   if (isReviewComplete) {
@@ -58,7 +125,6 @@ export const DesignReview = () => {
       <ReviewSummary
         template={selectedTemplate}
         responses={responses}
-        onComplete={handleReviewComplete}
         onEdit={() => setIsReviewComplete(false)}
       />
     );

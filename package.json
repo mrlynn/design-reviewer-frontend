@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",
+    "@monaco-editor/react": "^4.6.0",
     "@shadcn/ui": "^0.0.4",
     "axios": "^1.7.7",
     "lucide-react": "^0.456.0",
@@ -20,7 +21,9 @@
     "react-syntax-highlighter": "^15.6.1",
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.0",
-    "shadcn": "^2.1.6"
+    "shadcn": "^2.1.6",
+    "yaml": "^2.6.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
