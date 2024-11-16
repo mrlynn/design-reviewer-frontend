@@ -1,12 +1,18 @@
-// components/DesignReview/index.jsx
 import { useState, useEffect } from 'react';
 import { config } from '../../config';
 import TemplateSelector from './TemplateSelector';
 import ReviewSection from './ReviewSection';
 import ReviewSummary from './ReviewSummary';
+import TemplateEditor from '../templateEditor';
+import { Settings } from 'lucide-react';
 
 export const DesignReview = () => {
+  // Template Management State
   const [templates, setTemplates] = useState([]);
+  const [isManageMode, setIsManageMode] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  
+  // Review Process State
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [currentSection, setCurrentSection] = useState(0);
   const [responses, setResponses] = useState({});
@@ -14,6 +20,55 @@ export const DesignReview = () => {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Template Management Handlers
+  const handleEditTemplate = (template) => {
+    setEditingTemplate(template);
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    try {
+      const response = await fetch(`${config.API_URL}/api/templates/${templateId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete template');
+      }
+      
+      setTemplates(templates.filter(t => t.id !== templateId));
+    } catch (error) {
+      console.error('Failed to delete template:', error);
+      setError('Failed to delete template: ' + error.message);
+    }
+  };
+
+  const handleSaveTemplate = async (updatedTemplate) => {
+    try {
+      const response = await fetch(`${config.API_URL}/api/templates/${updatedTemplate.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedTemplate),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save template');
+      }
+
+      // Refresh templates list
+      const updatedTemplates = templates.map(t => 
+        t.id === updatedTemplate.id ? updatedTemplate : t
+      );
+      setTemplates(updatedTemplates);
+      setEditingTemplate(null);
+    } catch (error) {
+      console.error('Failed to save template:', error);
+      setError('Failed to save template: ' + error.message);
+    }
+  };
+
+  // Load Templates
   useEffect(() => {
     const loadTemplates = async () => {
       try {
@@ -36,26 +91,35 @@ export const DesignReview = () => {
     loadTemplates();
   }, []);
 
+  // Review Process Handlers
   const handleTemplateSelect = async (templateId) => {
+    if (isManageMode) return; // Prevent selection in manage mode
+    
     try {
       setIsLoading(true);
       setError(null);
-      
-      console.log('Loading template:', templateId);
+  
       const response = await fetch(`${config.API_URL}/api/templates/${templateId}`);
-      
       if (!response.ok) {
         throw new Error('Failed to load template');
       }
-      
+  
       const template = await response.json();
-      console.log('Selected template:', template);
-      
-      if (!template.sections || !Array.isArray(template.sections)) {
-        throw new Error('Invalid template format: missing sections array');
-      }
-      
-      setSelectedTemplate(template);
+  
+      // Normalize sections to ensure it's always an array
+      const sections = template?.currentContent?.sections || [];
+  
+      // Log for debugging
+      console.log('Loaded template sections:', sections);
+  
+      setSelectedTemplate({
+        ...template,
+        currentContent: {
+          ...template.currentContent,
+          sections, // Ensure sections is always an array
+        },
+      });
+  
       setCurrentSection(0);
       setResponses({});
       setIsReviewComplete(false);
@@ -66,6 +130,8 @@ export const DesignReview = () => {
       setIsLoading(false);
     }
   };
+  
+  
 
   const handleResponseChange = (questionId, value) => {
     setResponses(prev => ({
@@ -75,7 +141,9 @@ export const DesignReview = () => {
   };
 
   const handleSectionComplete = () => {
-    if (selectedTemplate && currentSection < selectedTemplate.sections.length - 1) {
+    const sections = selectedTemplate?.currentContent?.sections || [];
+    
+    if (selectedTemplate && currentSection < sections.length - 1) {
       setCurrentSection(currentSection + 1);
     } else {
       setIsReviewComplete(true);
@@ -86,6 +154,7 @@ export const DesignReview = () => {
     setCurrentSection(Math.max(0, currentSection - 1));
   };
 
+  // Loading State
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -99,6 +168,7 @@ export const DesignReview = () => {
     );
   }
 
+  // Error State
   if (error) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -116,10 +186,51 @@ export const DesignReview = () => {
     );
   }
 
-  if (!selectedTemplate) {
-    return <TemplateSelector templates={templates} onSelect={handleTemplateSelect} />;
+  // Template Editor
+  if (editingTemplate) {
+    console.log('editingTemplate', editingTemplate);
+    return (
+      <TemplateEditor
+        template={editingTemplate}
+        onSave={handleSaveTemplate}
+        onCancel={() => setEditingTemplate(null)}
+      />
+    );
   }
 
+  // Template Selection
+  if (!selectedTemplate) {
+
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6 max-w-6xl mx-auto px-6">
+          <h1 className="text-2xl font-bold text-mongodb-slate">
+            Design Review Templates
+          </h1>
+          <button
+            onClick={() => setIsManageMode(!isManageMode)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              isManageMode 
+                ? 'bg-mongodb-mist text-mongodb-slate' 
+                : 'bg-mongodb-mist text-mongodb-green'
+            }`}
+          >
+            <Settings size={18} />
+            {isManageMode ? 'Exit Management Mode' : 'Manage Templates'}
+          </button>
+        </div>
+        <TemplateSelector
+          templates={templates}
+          onSelect={handleTemplateSelect}
+          onEdit={handleEditTemplate}
+          onDelete={handleDeleteTemplate}
+          isManageMode={isManageMode}
+        />
+      </div>
+    );
+  }
+
+  // Review Complete
   if (isReviewComplete) {
     return (
       <ReviewSummary
@@ -130,40 +241,49 @@ export const DesignReview = () => {
     );
   }
 
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* Progress Indicator */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-mongodb-slate">
-            {selectedTemplate.name}
-          </h2>
-          <span className="text-mongodb-forest">
-            Section {currentSection + 1} of {selectedTemplate.sections.length}
-          </span>
+  // Review Process
+  if (selectedTemplate) {
+    const sections = selectedTemplate.currentContent?.sections || []; // Ensure sections is always an array
+  
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        {/* Progress Indicator */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-mongodb-slate">
+              {selectedTemplate.name}
+            </h2>
+            <span className="text-mongodb-forest">
+              Section {currentSection + 1} of {sections.length}
+            </span>
+          </div>
+          <div className="bg-mongodb-lavender h-2 rounded-full">
+            <div
+              className="bg-mongodb-forest h-2 rounded-full transition-all"
+              style={{
+                width: `${((currentSection + 1) / sections.length) * 100}%`
+              }}
+            />
+          </div>
         </div>
-        <div className="bg-mongodb-lavender h-2 rounded-full">
-          <div
-            className="bg-mongodb-forest h-2 rounded-full transition-all"
-            style={{
-              width: `${((currentSection + 1) / selectedTemplate.sections.length) * 100}%`
-            }}
+  
+        {/* Current Section */}
+        {sections.length > 0 ? (
+          <ReviewSection
+            section={sections[currentSection]}
+            responses={responses}
+            onChange={handleResponseChange}
+            onNext={handleSectionComplete}
+            onBack={handleSectionBack}
+            isFirstSection={currentSection === 0}
+            isLastSection={currentSection === sections.length - 1}
           />
-        </div>
+        ) : (
+          <p className="text-center text-gray-500">No sections available in this template.</p>
+        )}
       </div>
-
-      {/* Current Section */}
-      <ReviewSection
-        section={selectedTemplate.sections[currentSection]}
-        responses={responses}
-        onChange={handleResponseChange}
-        onNext={handleSectionComplete}
-        onBack={handleSectionBack}
-        isFirstSection={currentSection === 0}
-        isLastSection={currentSection === selectedTemplate.sections.length - 1}
-      />
-    </div>
-  );
-};
+    );
+  }
+}
 
 export default DesignReview;

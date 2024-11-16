@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { config } from '../config';
+import TemplateManager from './TemplateManager';
 
 export function DesignReviewAnalysis() {
   const [formData, setFormData] = useState({
