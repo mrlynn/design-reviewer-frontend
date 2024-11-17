@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Database, BookOpen } from 'lucide-react';
+import { FileText, BookOpen } from 'lucide-react';
 
 const Navigation = ({ activeMode, onModeChange }) => {
   const modes = [
@@ -8,12 +8,6 @@ const Navigation = ({ activeMode, onModeChange }) => {
       name: 'Design Review',
       icon: FileText,
       description: 'Conduct MongoDB design reviews'
-    },
-    {
-      id: 'templates',
-      name: 'Templates',
-      icon: Database,
-      description: 'Manage review templates'
     },
     {
       id: 'rag',
@@ -27,7 +21,6 @@ const Navigation = ({ activeMode, onModeChange }) => {
     <nav className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          {/* Add the title here */}
           <h1 className="text-lg font-semibold text-gray-900">
             MongoDB Design Review Assistant
           </h1>

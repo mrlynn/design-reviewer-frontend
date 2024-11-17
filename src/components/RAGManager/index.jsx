@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, RefreshCw, Database, FileText, Settings, Trash2, Plus, Search, X } from 'lucide-react';
 import { config } from '../../config';
+import ReactMarkdown from 'react-markdown';
+
 
 const QuestionAnswerSection = ({
     question,
@@ -51,19 +53,35 @@ const QuestionAnswerSection = ({
                 </div>
             </div>
 
-            {/* Response Display */}
+            {/* Response Display with Markdown Rendering */}
             {response && (
                 <div className="mt-6">
                     <div className="bg-mongodb-lavender rounded-lg p-6">
                         <h3 className="text-lg font-bold text-mongodb-slate mb-4">Response</h3>
-                        <div className="prose max-w-none text-mongodb-slate">
-                            {response.split('\n').map((paragraph, idx) => (
-                                paragraph.trim() && (
-                                    <p key={idx} className="mb-4 last:mb-0">
-                                        {paragraph}
-                                    </p>
-                                )
-                            ))}
+                        <div className="prose prose-sm max-w-none text-mongodb-slate">
+                            <ReactMarkdown
+                                components={{
+                                    // Customize how different markdown elements are rendered
+                                    h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-4" {...props} />,
+                                    h2: ({node, ...props}) => <h2 className="text-xl font-bold mb-3" {...props} />,
+                                    h3: ({node, ...props}) => <h3 className="text-lg font-bold mb-2" {...props} />,
+                                    p: ({node, ...props}) => <p className="mb-4 last:mb-0" {...props} />,
+                                    ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-4" {...props} />,
+                                    ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-4" {...props} />,
+                                    li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                                    code: ({node, inline, ...props}) => (
+                                        inline 
+                                            ? <code className="bg-gray-100 text-mongodb-forest px-1 py-0.5 rounded" {...props} />
+                                            : <code className="block bg-gray-100 p-4 rounded-lg overflow-x-auto" {...props} />
+                                    ),
+                                    pre: ({node, ...props}) => <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto mb-4" {...props} />,
+                                    blockquote: ({node, ...props}) => (
+                                        <blockquote className="border-l-4 border-mongodb-green pl-4 italic my-4" {...props} />
+                                    ),
+                                }}
+                            >
+                                {response}
+                            </ReactMarkdown>
                         </div>
                     </div>
                 </div>
@@ -304,7 +322,31 @@ const RAGManager = () => {
                     {response && (
                         <div className="mt-6 p-4 bg-mongodb-lavender rounded-lg">
                             <h3 className="text-lg font-bold">Response:</h3>
-                            <p>{response}</p>
+                            <div className="prose prose-sm max-w-none text-mongodb-slate">
+                            <ReactMarkdown
+                                components={{
+                                    // Customize how different markdown elements are rendered
+                                    h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-4" {...props} />,
+                                    h2: ({node, ...props}) => <h2 className="text-xl font-bold mb-3" {...props} />,
+                                    h3: ({node, ...props}) => <h3 className="text-lg font-bold mb-2" {...props} />,
+                                    p: ({node, ...props}) => <p className="mb-4 last:mb-0" {...props} />,
+                                    ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-4" {...props} />,
+                                    ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-4" {...props} />,
+                                    li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                                    code: ({node, inline, ...props}) => (
+                                        inline 
+                                            ? <code className="bg-gray-100 text-mongodb-forest px-1 py-0.5 rounded" {...props} />
+                                            : <code className="block bg-gray-100 p-4 rounded-lg overflow-x-auto" {...props} />
+                                    ),
+                                    pre: ({node, ...props}) => <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto mb-4" {...props} />,
+                                    blockquote: ({node, ...props}) => (
+                                        <blockquote className="border-l-4 border-mongodb-green pl-4 italic my-4" {...props} />
+                                    ),
+                                }}
+                            >
+                                {response}
+                            </ReactMarkdown>
+                        </div>
                         </div>
                     )}
 

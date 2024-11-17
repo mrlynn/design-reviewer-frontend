@@ -1,125 +1,72 @@
-import { useState, useEffect } from 'react';
+// components/DesignReview/index.jsx
+import React, { useState, useEffect } from 'react';
+import { Settings } from 'lucide-react';
 import { config } from '../../config';
 import TemplateSelector from './TemplateSelector';
 import ReviewSection from './ReviewSection';
 import ReviewSummary from './ReviewSummary';
-import TemplateEditor from '../templateEditor';
-import { Settings } from 'lucide-react';
 
 export const DesignReview = () => {
   // Template Management State
   const [templates, setTemplates] = useState([]);
   const [isManageMode, setIsManageMode] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
   
   // Review Process State
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [currentSection, setCurrentSection] = useState(0);
   const [responses, setResponses] = useState({});
   const [isReviewComplete, setIsReviewComplete] = useState(false);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Template Management Handlers
-  const handleEditTemplate = (template) => {
-    setEditingTemplate(template);
-  };
-
-  const handleDeleteTemplate = async (templateId) => {
-    try {
-      const response = await fetch(`${config.API_URL}/api/templates/${templateId}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete template');
-      }
-      
-      setTemplates(templates.filter(t => t.id !== templateId));
-    } catch (error) {
-      console.error('Failed to delete template:', error);
-      setError('Failed to delete template: ' + error.message);
-    }
-  };
-
-  const handleSaveTemplate = async (updatedTemplate) => {
-    try {
-      const response = await fetch(`${config.API_URL}/api/templates/${updatedTemplate.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedTemplate),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save template');
-      }
-
-      // Refresh templates list
-      const updatedTemplates = templates.map(t => 
-        t.id === updatedTemplate.id ? updatedTemplate : t
-      );
-      setTemplates(updatedTemplates);
-      setEditingTemplate(null);
-    } catch (error) {
-      console.error('Failed to save template:', error);
-      setError('Failed to save template: ' + error.message);
-    }
-  };
-
-  // Load Templates
+  // Load templates on mount
   useEffect(() => {
-    const loadTemplates = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`${config.API_URL}/api/templates`);
-        if (!response.ok) {
-          throw new Error('Failed to load templates');
-        }
-        const data = await response.json();
-        console.log('Loaded templates:', data);
-        setTemplates(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Error loading templates:', err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadTemplates();
   }, []);
 
-  // Review Process Handlers
-  const handleTemplateSelect = async (templateId) => {
-    if (isManageMode) return; // Prevent selection in manage mode
-    
+  const loadTemplates = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${config.API_URL}/api/templates`);
+      if (!response.ok) throw new Error('Failed to load templates');
+      const data = await response.json();
+      setTemplates(data);
+    } catch (err) {
+      console.error('Error loading templates:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTemplateChange = async (updatedTemplate) => {
+    // Update the templates list with the new version
+    setTemplates(prev => prev.map(t => 
+      t.templateId === updatedTemplate.templateId ? updatedTemplate : t
+    ));
+  };
+
+  const handleTemplateSelect = async (template) => {
     try {
       setIsLoading(true);
       setError(null);
-  
-      const response = await fetch(`${config.API_URL}/api/templates/${templateId}`);
-      if (!response.ok) {
-        throw new Error('Failed to load template');
-      }
-  
-      const template = await response.json();
-  
-      // Normalize sections to ensure it's always an array
-      const sections = template?.currentContent?.sections || [];
-  
-      // Log for debugging
-      console.log('Loaded template sections:', sections);
-  
+
+      // Load the full template with all sections
+      const response = await fetch(`${config.API_URL}/api/templates/${template.templateId}`);
+      if (!response.ok) throw new Error('Failed to load template');
+      
+      const fullTemplate = await response.json();
+      
+      // Get the current version's content
+      const currentVersion = fullTemplate.versions.find(v => v.version === fullTemplate.currentVersion);
+      if (!currentVersion) throw new Error('No current version found');
+
       setSelectedTemplate({
-        ...template,
-        currentContent: {
-          ...template.currentContent,
-          sections, // Ensure sections is always an array
-        },
+        ...fullTemplate,
+        currentContent: currentVersion.content // This includes sections, globalPromptContext, etc.
       });
-  
+
+      // Reset review state
       setCurrentSection(0);
       setResponses({});
       setIsReviewComplete(false);
@@ -130,9 +77,8 @@ export const DesignReview = () => {
       setIsLoading(false);
     }
   };
-  
-  
 
+  // Handle responses for the current section
   const handleResponseChange = (questionId, value) => {
     setResponses(prev => ({
       ...prev,
@@ -141,9 +87,7 @@ export const DesignReview = () => {
   };
 
   const handleSectionComplete = () => {
-    const sections = selectedTemplate?.currentContent?.sections || [];
-    
-    if (selectedTemplate && currentSection < sections.length - 1) {
+    if (selectedTemplate && currentSection < selectedTemplate.currentContent.sections.length - 1) {
       setCurrentSection(currentSection + 1);
     } else {
       setIsReviewComplete(true);
@@ -154,7 +98,7 @@ export const DesignReview = () => {
     setCurrentSection(Math.max(0, currentSection - 1));
   };
 
-  // Loading State
+  // Loading state
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -168,7 +112,7 @@ export const DesignReview = () => {
     );
   }
 
-  // Error State
+  // Error state
   if (error) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -186,21 +130,8 @@ export const DesignReview = () => {
     );
   }
 
-  // Template Editor
-  if (editingTemplate) {
-    console.log('editingTemplate', editingTemplate);
-    return (
-      <TemplateEditor
-        template={editingTemplate}
-        onSave={handleSaveTemplate}
-        onCancel={() => setEditingTemplate(null)}
-      />
-    );
-  }
-
-  // Template Selection
+  // Template Selection View
   if (!selectedTemplate) {
-
     return (
       <div>
         <div className="flex justify-between items-center mb-6 max-w-6xl mx-auto px-6">
@@ -219,71 +150,68 @@ export const DesignReview = () => {
             {isManageMode ? 'Exit Management Mode' : 'Manage Templates'}
           </button>
         </div>
+        
         <TemplateSelector
           templates={templates}
           onSelect={handleTemplateSelect}
-          onEdit={handleEditTemplate}
-          onDelete={handleDeleteTemplate}
+          onTemplateChange={handleTemplateChange}
           isManageMode={isManageMode}
         />
       </div>
     );
   }
 
-  // Review Complete
+  // Review Complete View
   if (isReviewComplete) {
     return (
       <ReviewSummary
         template={selectedTemplate}
         responses={responses}
-        onEdit={() => setIsReviewComplete(false)}
+        onRestart={() => {
+          setSelectedTemplate(null);
+          setResponses({});
+          setCurrentSection(0);
+          setIsReviewComplete(false);
+        }}
       />
     );
   }
 
-  // Review Process
-  if (selectedTemplate) {
-    const sections = selectedTemplate.currentContent?.sections || []; // Ensure sections is always an array
-  
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        {/* Progress Indicator */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-mongodb-slate">
-              {selectedTemplate.name}
-            </h2>
-            <span className="text-mongodb-forest">
-              Section {currentSection + 1} of {sections.length}
-            </span>
-          </div>
-          <div className="bg-mongodb-lavender h-2 rounded-full">
-            <div
-              className="bg-mongodb-forest h-2 rounded-full transition-all"
-              style={{
-                width: `${((currentSection + 1) / sections.length) * 100}%`
-              }}
-            />
-          </div>
+  // Review Process View
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Progress Indicator */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-mongodb-slate">
+            {selectedTemplate.name}
+          </h2>
+          <span className="text-mongodb-forest">
+            Section {currentSection + 1} of {selectedTemplate.currentContent.sections.length}
+          </span>
         </div>
-  
-        {/* Current Section */}
-        {sections.length > 0 ? (
-          <ReviewSection
-            section={sections[currentSection]}
-            responses={responses}
-            onChange={handleResponseChange}
-            onNext={handleSectionComplete}
-            onBack={handleSectionBack}
-            isFirstSection={currentSection === 0}
-            isLastSection={currentSection === sections.length - 1}
+        <div className="bg-mongodb-lavender h-2 rounded-full">
+          <div
+            className="bg-mongodb-forest h-2 rounded-full transition-all"
+            style={{
+              width: `${((currentSection + 1) / selectedTemplate.currentContent.sections.length) * 100}%`
+            }}
           />
-        ) : (
-          <p className="text-center text-gray-500">No sections available in this template.</p>
-        )}
+        </div>
       </div>
-    );
-  }
-}
+
+      {/* Current Section */}
+      <ReviewSection
+        section={selectedTemplate.currentContent.sections[currentSection]}
+        responses={responses}
+        onChange={handleResponseChange}
+        onNext={handleSectionComplete}
+        onBack={handleSectionBack}
+        isFirstSection={currentSection === 0}
+        isLastSection={currentSection === selectedTemplate.currentContent.sections.length - 1}
+      />
+    </div>
+  );
+};
 
 export default DesignReview;
